@@ -1,0 +1,32 @@
+{
+  "name": "icebreaker-peer-tls",
+  "version": "0.1.1",
+  "description": "icebreaker-peer-tls",
+  "main": "index.js",
+  "scripts": {
+    "test": "set -e; for t in test/*.js; do node $t; done"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alligator-io/icebreaker-peer-tls.git"
+  },
+  "keywords": [
+    "icebreaker",
+    "server",
+    "client",
+    "peer",
+    "p2p",
+    "tcp",
+    "tls"
+  ],
+  "author": "Markus Wunderlin",
+  "license": "MIT",
+  "readmeFilename": "README.md",
+  "dependencies": {
+    "icebreaker": "^0.6.0",
+    "icebreaker-peer": "^0.1.1"
+  },
+   "devDependencies": {
+    "tape": "^3.0.3"
+  }
+}
