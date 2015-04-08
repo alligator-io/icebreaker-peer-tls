@@ -1,9 +1,15 @@
 var test = require('tape')
 var _ = require('icebreaker')
 require('../index.js')
+var fs = require('fs')
+var tls = require('tls')
 
 test('_.peers.tls',function(t){
-  var p = _.peers.tls({port:'./test.socket'})
+  var p = _.peers.tls({
+    port:'./test.socket',
+    cert:fs.readFileSync(__dirname+'/public-cert.pem'),
+    key:fs.readFileSync(__dirname+'/private-key.pem')
+  })
 
   p.on('connect',function(params){
     console.log('connecting to ',params.address ,':', params.port)
@@ -38,7 +44,7 @@ test('_.peers.tls',function(t){
     console.log('peer',this.name,' on ',this.address,':',this.port ,' stopped')
     t.equal(this.port,'./test.socket')
     console.log(this.port)
-    t.equal(this.name,'net')
+    t.equal(this.name,'tls')
     console.log(this.name)
     t.equal(Object.keys(p.connections).length,0)
     t.end()
