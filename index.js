@@ -22,7 +22,6 @@ function getOptions(p,p2) {
     ca: p.ca,
     cert: p.cert,
     pfx: p.pfx,
-    ecdhCurve:p.ecdhCurve,
     rejectUnauthorized:p.rejectUnauthorized
   }
 
@@ -53,11 +52,10 @@ _.mixin({
     name: 'tls',
     auto: true,
     requestCert: false,
-    rejectUnauthorized:false,
+    rejectUnauthorized: false,
     start: function () {
       var self = this
       var options = getOptions(this)
-      options.honorCipherOrder = this.honorCipherOrder
       options.requestCert = this.requestCert
 
       var server = self.server = tls.createServer(options, connection.bind(self))
