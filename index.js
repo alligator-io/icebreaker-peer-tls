@@ -16,14 +16,31 @@ if (!_.peers) _.mixin({
   peers: {}
 })
 
-function getOptions(p) {
+function getOptions(p,p2) {
   var opts = {
     key: p.key,
     ca: p.ca,
-    pfx: p.pfx
+    cert: p.cert,
+    pfx: p.pfx,
+    ecdhCurve:p.ecdhCurve,
+    rejectUnauthorized:p.rejectUnauthorized
   }
-  if (isString(p.port)) opts.path = p.port
-  else options.port = p.port
+
+  if (isString(p.port)){ opts.path = p.port}
+  else opts.port = p.port
+
+  if(!p2)return opts
+
+  if(p2!==false)
+  _(_.keys(opts),_.drain(function(key){
+    if(typeof opts[key] === undefined){
+      opts[key]=p2[key]
+    }
+  }))
+
+  if(!opts.ca && p2.cert && p2.rejectUnauthorized===false)opts.ca=[p2.cert]
+  if(!isString(p.port) && !opts.host) opts.host = p.address
+
   return opts
 }
 
@@ -35,15 +52,18 @@ _.mixin({
   tls: _.peer({
     name: 'tls',
     auto: true,
-
+    requestCert: false,
+    rejectUnauthorized:false,
     start: function () {
       var self = this
       var options = getOptions(this)
-      var server = self.server = tls.createServer(options, connection.bind(self))
+      options.honorCipherOrder = this.honorCipherOrder
+      options.requestCert = this.requestCert
 
-      self.server.on('error', function (err) {
+      var server = self.server = tls.createServer(options, connection.bind(self))
+      self.server.once('error', function (err) {
         if (isString(self.port) && err.code === 'EADDRINUSE') {
-          var socket = tls.connect(options, function () {
+          var socket = tls.connect(getOptions(self,false), function () {
             _(
               'peer ' + self.name + ' port ' + self.port +
               ' is already in use by another process.',
@@ -51,7 +71,7 @@ _.mixin({
             )
           })
 
-          socket.on('error', function (err) {
+          socket.once('error', function (err) {
             if (err.code == 'ECONNREFUSED') {
               fs.unlink(self.port, function (err) {
                 if (err)
@@ -59,8 +79,11 @@ _.mixin({
                     'cannot remove unix socket ' + self.port,
                     _.log(process.exit.bind(null, 1), 'emerg')
                   )
-                listen()
+                  listen()
               })
+            }
+            else if(err.code==='ENOENT'){
+              listen()
             }
           })
 
@@ -99,11 +122,7 @@ _.mixin({
         _([err.message, params, err.stack], _.log(null, 'error'))
       }
 
-      var opts = getOptions(params)
-
-      if (!isString(params.port)) {
-        opts.host = params.address
-      }
+      var opts = getOptions(params,this)
 
       var c = tls.connect(opts,
         function () {
