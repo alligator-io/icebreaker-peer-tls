@@ -3,48 +3,35 @@ var fs = require('fs')
 var _ = require('icebreaker')
 if (!_.peer) require('icebreaker-peer')
 
-function connection(original) {
-  if (original.setKeepAlive) original.setKeepAlive(true)
-  if (original.setNoDelay) original.setNoDelay(true)
-  var net = _.pair(original)
-  if (original.remoteAddress) net.address = original.remoteAddress
-  if (original.remotePort) net.port = original.remotePort
-  this.connection(net)
-}
-
 if (!_.peers) _.mixin({
   peers: {}
 })
 
-function getOptions(p,p2) {
-  var opts = {
-    key: p.key,
-    ca: p.ca,
-    cert: p.cert,
-    pfx: p.pfx,
-    rejectUnauthorized:p.rejectUnauthorized
-  }
+function isString(s) {
+  return typeof s === 'string'
+}
 
-  if (isString(p.port)){ opts.path = p.port}
-  else opts.port = p.port
+function isPath(p) {
+  return isString(p) && isNaN(p)
+}
 
-  if(!p2)return opts
-
-  if(p2!==false)
-  _(_.keys(opts),_.drain(function(key){
-    if(typeof opts[key] === undefined){
-      opts[key]=p2[key]
-    }
-  }))
-
-  if(!opts.ca && p2.cert && p2.rejectUnauthorized===false)opts.ca=[p2.cert]
-  if(!isString(p.port) && !opts.host) opts.host = p.address
-
+function pick(keys, p) {
+  var opts = {}
+  keys.forEach(function (key) {
+    if (key === 'address') return opts.host = !isPath(p['port']) ? p[key] : null
+    if (key === 'port' && isPath(p[key])) return opts.path = p[key]
+    opts[key] = p[key]
+  })
   return opts
 }
 
-function isString(s){
-  return typeof s === 'string'
+function connection(original) {
+  if (original.setKeepAlive) original.setKeepAlive(true)
+  if (original.setNoDelay) original.setNoDelay(true)
+  var connection = _.pair(original)
+  if (original.remoteAddress) connection.address = original.remoteAddress
+  if (original.remotePort) connection.port = original.remotePort
+  this.connection(net)
 }
 
 _.mixin({
@@ -55,19 +42,30 @@ _.mixin({
     rejectUnauthorized: false,
     start: function () {
       var self = this
-      var options = getOptions(this)
-      options.requestCert = this.requestCert
 
-      var server = self.server = tls.createServer(options, connection.bind(self))
+      self.server = tls.createServer(
+        pick(
+          ['key', 'ca', 'cert', 'pfx', 'rejectUnauthorized', 'requestCert'],
+          this
+        ),
+        connection.bind(this)
+      )
+
       self.server.once('error', function (err) {
-        if (isString(self.port) && err.code === 'EADDRINUSE') {
-          var socket = tls.connect(getOptions(self,false), function () {
-            _(
-              'peer ' + self.name + ' port ' + self.port +
-              ' is already in use by another process.',
-              _.log(process.exit.bind(null, 1), 'emerg')
-            )
-          })
+        if (isPath(self.port) && err.code === 'EADDRINUSE') {
+          var socket = tls.connect(
+            pick(
+              ['key', 'ca', 'cert', 'pfx', 'rejectUnauthorized', 'port'],
+              self
+            ),
+            function () {
+              _(
+                'peer ' + self.name + ' port ' + self.port +
+                ' is already in use by another process.',
+                _.log(process.exit.bind(null, 1), 'emerg')
+              )
+            }
+          )
 
           socket.once('error', function (err) {
             if (err.code == 'ECONNREFUSED') {
@@ -77,10 +75,10 @@ _.mixin({
                     'cannot remove unix socket ' + self.port,
                     _.log(process.exit.bind(null, 1), 'emerg')
                   )
-                  listen()
+                listen()
               })
             }
-            else if(err.code==='ENOENT'){
+            else if (err.code === 'ENOENT') {
               listen()
             }
           })
@@ -93,47 +91,41 @@ _.mixin({
           _.log(process.exit.bind(null, 1), 'emerg')
         )
 
-      }
-      )
-
-      var onListening = function () {
-        if (isString(self.port)) fs.chmod(self.port, 0777)
-        self.emit('started')
-      }
+      })
 
       var listen = function (onListening) {
         self.server.listen(
-          self.port, isString(self.port) ? null :
+          self.port, isPath(self.port) ? null :
           self.address, onListening
         )
       }
 
-      listen(onListening)
+      listen(function () {
+        if (isPath(self.port)) fs.chmod(self.port, 0777)
+        self.emit('started')
+      })
     },
 
     connect: function (params) {
-      var self = this
+      var keys = [
+        'key', 'ca', 'cert', 'pfx', 'rejectUnauthorized', 'port', 'address'
+      ]
 
-      if (!params.address) params.address = self.address
+      params = pick(keys, params)
 
-      var onError = function (err) {
-        _([err.message, params, err.stack], _.log(null, 'error'))
+      if (!params.ca && this.cert && this.rejectUnauthorized === false)
+        params.ca = [this.cert]
+
+      var defaults = pick(keys, this)
+      for (var i in defaults) {
+        if (!params[i] && defaults[i]) params[i] = defaults[i]
       }
 
-      var opts = getOptions(params,this)
-
-      var c = tls.connect(opts,
-        function () {
-          c.removeListener('error', onError)
-          connection.call(self, c)
-        }
-      )
-      c.once('error', onError)
+      connection.call(this, tls.connect(params))
     },
 
     stop: function stop() {
       var self = this
-
       try {
         self.server.close(function close() {
           if (Object.keys(self.connections).length > 0) {
@@ -141,17 +133,15 @@ _.mixin({
               close.call(self)
             })
             return
-          }
-          else
+          } else
             self.emit('stopped')
         })
-      }
-      catch (e) {
+      } catch (e) {
         _([e], _.log(function () {
-         self.emit('stopped')
+          self.emit('stopped')
         }), 'error')
       }
     }
   })
-  },
-  _.peers)
+},
+_.peers)
