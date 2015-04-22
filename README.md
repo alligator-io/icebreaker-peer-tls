@@ -2,6 +2,14 @@
 
 [![Travis](https://img.shields.io/travis/alligator-io/icebreaker-peer-tls.svg)](https://travis-ci.org/alligator-io/icebreaker-peer-tls)
 [![NPM](https://img.shields.io/npm/dm/icebreaker-peer-tls.svg)](https://www.npmjs.com/package/icebreaker-peer-tls)
+## Prerequisites
+```bash
+npm install --save icebreaker
+```
+## Install
+```bash
+npm install --save icebreaker-peer-tls
+```
 ## Example
 ```javascript
 var _ = require('icebreaker')
@@ -11,8 +19,8 @@ require('icebreaker-msgpack')
 var muxrpc = require('muxrpc')
 var os = require('os')
 var fs = require('fs')
-
-var cert = fs.readFileSync('./node_modules/icebreaker-peer-tls/test/public-cert.pem') // for example
+// for example
+var cert = fs.readFileSync('./node_modules/icebreaker-peer-tls/test/public-cert.pem')
 var key = fs.readFileSync('./node_modules/icebreaker-peer-tls/test/private-key.pem')
 
 var manifest={
