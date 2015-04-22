@@ -20,7 +20,7 @@ test('_.peers.tls',function(t){
     console.log('connection ',connection.address,':',connection.port)
     ++c
     connection.c=c
-    _(_.empty(),connection,_.onEnd(function(err){
+    _(["test"],connection,_.onEnd(function(err,data){
       t.equal(err,null)
       if(connection.c==2)p.stop()
     }))
