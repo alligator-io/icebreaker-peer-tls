@@ -5,14 +5,11 @@ var fs = require('fs')
 var tls = require('tls')
 
 test('_.peers.tls',function(t){
+  t.plan(7)
   var p = _.peers.tls({
     port:'./test.socket',
     cert:fs.readFileSync(__dirname+'/public-cert.pem'),
     key:fs.readFileSync(__dirname+'/private-key.pem')
-  })
-
-  p.on('connect',function(params){
-    console.log('connecting to ',params.address ,':', params.port)
   })
 
   var c =0
@@ -20,7 +17,10 @@ test('_.peers.tls',function(t){
     console.log('connection ',connection.address,':',connection.port)
     ++c
     connection.c=c
-    _(["test"],connection,_.onEnd(function(err,data){
+    _(["test"],connection,_.drain(function(data){
+      t.equal(data.toString(),'test')
+    },
+    function(err,data){
       t.equal(err,null)
       if(connection.c==2)p.stop()
     }))
@@ -33,7 +33,6 @@ test('_.peers.tls',function(t){
   p.on('started',function(){
     console.log('peer',this.name,' on ',this.address,':',this.port ,' started')
     p.connect(p)
-    console.log('starts',this.port)
   })
 
   p.on('stop',function(){
@@ -47,7 +46,6 @@ test('_.peers.tls',function(t){
     t.equal(this.name,'tls')
     console.log(this.name)
     t.equal(Object.keys(p.connections).length,0)
-    t.end()
   })
 
   p.start()
