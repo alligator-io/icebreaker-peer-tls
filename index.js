@@ -31,7 +31,7 @@ function connection(original) {
   var connection = _.pair(original)
   if (original.remoteAddress) connection.address = original.remoteAddress
   if (original.remotePort) connection.port = original.remotePort
-  this.connection(net)
+  this.connection(connection)
 }
 
 _.mixin({
