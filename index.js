@@ -25,37 +25,36 @@ function pick(keys, p) {
   return opts
 }
 
-function connection(original) {
-  if (original.setKeepAlive) original.setKeepAlive(true)
-  if (original.setNoDelay) original.setNoDelay(true)
-  var connection = _.pair(original)
-  if (original.remoteAddress) connection.address = original.remoteAddress
-  if (original.remotePort) connection.port = original.remotePort
-  this.connection(connection)
-}
-
 _.mixin({
   tls: _.peer({
     name: 'tls',
     auto: true,
     requestCert: false,
     rejectUnauthorized: false,
+    handshakeTimeout:20,
     start: function () {
       var self = this
 
       self.server = tls.createServer(
         pick(
-          ['key', 'ca', 'cert', 'pfx', 'rejectUnauthorized', 'requestCert'],
+          ['key', 'ca', 'cert', 'pfx', 'rejectUnauthorized', 'requestCert','handshakeTimeout'],
           this
         ),
-        connection.bind(this)
+        function(o){
+          o.setKeepAlive(true)
+          o.setNoDelay(true)
+          var c = _.pair(o)
+          c.address = o.remoteAddress
+          c.port = o.remotePort
+          self.connection(c)
+        }
       )
 
       self.server.once('error', function (err) {
         if (isPath(self.port) && err.code === 'EADDRINUSE') {
           var socket = tls.connect(
             pick(
-              ['key', 'ca', 'cert', 'pfx', 'rejectUnauthorized', 'port'],
+              ['key', 'ca', 'cert', 'pfx', 'rejectUnauthorized', 'port','handshakeTimeout'],
               self
             ),
             function () {
@@ -107,10 +106,11 @@ _.mixin({
     },
 
     connect: function (params) {
+      var self = this
       var keys = [
-        'key', 'ca', 'cert', 'pfx', 'rejectUnauthorized', 'port', 'address'
+        'key', 'ca', 'cert', 'pfx', 'rejectUnauthorized', 'port', 'address','handshakeTimeout'
       ]
-
+      var  original = params
       params = pick(keys, params)
 
       if (!params.ca && this.cert && this.rejectUnauthorized === false)
@@ -121,7 +121,27 @@ _.mixin({
         if (!params[i] && defaults[i]) params[i] = defaults[i]
       }
 
-      connection.call(this, tls.connect(params))
+      var o = tls.connect(params)
+      o.direction=original
+      o.setKeepAlive(true)
+      o.setNoDelay(true)
+
+      function emit(c){
+        c.direction = original.direction
+        c.address = o.remoteAddress||original.address
+        if(isPath(c.port))c.address = c.address||self.address
+        c.port = o.remotePort||params.port
+        self.connection(c)
+      }
+
+      function handle(err){
+        o.removeListener('error',handle)
+        o.removeListener('secureConnection',handle)
+        if(err)return emit({ source:_.error(err), sink:_.drain()})
+        emit(_.pair(o))
+      }
+      o.once('error',handle)
+      o.once('secureConnection',handle)
     },
 
     stop: function stop() {
