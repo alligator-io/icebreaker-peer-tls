@@ -140,8 +140,8 @@ _.mixin({
         if(err)return emit({ source:_.error(err), sink:_.drain()})
         emit(_.pair(o))
       }
-      o.once('error',handle)
-      o.once('secureConnection',handle)
+      o.on('error',handle)
+      o.on('secureConnection',handle)
     },
 
     stop: function stop() {
