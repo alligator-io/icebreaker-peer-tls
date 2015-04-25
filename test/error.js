@@ -19,7 +19,7 @@ test('_.peers.tls should emit an error',function(t){
   })
 
   p.on('started',function(){
-    p.connect({address:'localhost',port:'9384'})
+    p.connect({address:'localhost',port:'9872'})
   })
 
   p.on('stopped',function(){

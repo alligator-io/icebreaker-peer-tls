@@ -2,51 +2,87 @@ var test = require('tape')
 var _ = require('icebreaker')
 require('../index.js')
 var fs = require('fs')
-var tls = require('tls')
+var net = require('net')
 
-test('_.peers.tls',function(t){
-  t.plan(7)
-  var p = _.peers.tls({
-    port:'./test.socket',
-    cert:fs.readFileSync(__dirname+'/public-cert.pem'),
-    key:fs.readFileSync(__dirname+'/private-key.pem')
+var peer1 = _.peers.tls({
+  port:'./test1.socket',
+  cert:fs.readFileSync(__dirname+'/public-cert.pem'),
+  key:fs.readFileSync(__dirname+'/private-key.pem')
+})
+var peer2 = _.peers.tls({
+  port:'./test2.socket',
+  cert:fs.readFileSync(__dirname+'/public-cert.pem'),
+  key:fs.readFileSync(__dirname+'/private-key.pem')
+})
+
+test('start', function (t) {
+  peer1.once('started', function () {
+    t.pass('started')
+    t.end()
   })
 
-  var c =0
-  p.on('connection',function(connection){
-    console.log('connection ',connection.address,':',connection.port)
-    ++c
-    connection.c=c
-    _(["test"],connection,_.drain(function(data){
-      t.equal(data.toString(),'test')
-    },
-    function(err,data){
-      t.equal(err,null)
-      if(connection.c==2)p.stop()
-    }))
+  peer1.start()
+  peer2.start()
+})
+
+test('connect: peer1->peer2', function (t) {
+  peer1.on('connection', function (connection) {
+    t.equal(connection.type, 'net')
+    t.equal(typeof connection.source, 'function')
+    t.equal(typeof connection.sink, 'function')
+    t.equal(typeof connection.address, 'string')
+    t.equal(typeof connection.id, 'string')
+    t.equal(typeof connection.port, 'string')
+    t.equal(connection.direction, 1)
+    t.ok(net.isIP(connection.address))
+    t.equal(Object.keys(peer1.connections).length, 1)
+
+    _(
+      connection,
+      _.map(function (text) {
+        t.equal(text.toString(), 'hello')
+        return "world"
+      }),
+      connection
+    )
   })
 
-  p.on('start',function(){
-    console.log('starting peer',this.name,' on ',this.address,':',this.port)
+  peer2.on('connection', function (connection) {
+    t.equal(connection.direction, -1)
+    t.test('peer2->peer1->peer2', function (t2) {
+
+      _(
+        'hello',
+        connection,
+        _.drain(function (data) {
+            t2.equal(data.toString(), 'world')
+        },
+        function (err) {
+          t2.notOk(err)
+          t2.equal(Object.keys(peer2.connections).length, 1)
+          process.nextTick(function(){
+            t2.equal(Object.keys(peer1.connections).length, 0)
+            t2.equal(Object.keys(peer2.connections).length, 0)
+            t2.end()
+          })
+        })
+      )
+    })
+  })
+  peer1.connect(peer2)
+})
+
+test('stop', function (t) {
+  t.plan(2)
+
+  peer1.once('stopped', function () {
+    t.pass('stopped')
   })
 
-  p.on('started',function(){
-    console.log('peer',this.name,' on ',this.address,':',this.port ,' started')
-    p.connect(p)
+  peer2.once('stopped', function () {
+    t.pass('stopped')
   })
 
-  p.on('stop',function(){
-    console.log('stopping peer',this.name,' on ',this.address,':',this.port ,'')
-  })
-
-  p.on('stopped',function(){
-    console.log('peer',this.name,' on ',this.address,':',this.port ,' stopped')
-    t.equal(this.port,'./test.socket')
-    console.log(this.port)
-    t.equal(this.name,'tls')
-    console.log(this.name)
-    t.equal(Object.keys(p.connections).length,0)
-  })
-
-  p.start()
+  peer1.stop()
+  peer2.stop()
 })
