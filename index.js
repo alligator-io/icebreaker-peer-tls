@@ -129,6 +129,7 @@ _.mixin({
       function emit(c){
         c.direction = original.direction
         c.address = o.remoteAddress||original.address
+        if(original.hostname)c.hostname = original.hostname
         if(isPath(c.port))c.address = c.address||self.address
         c.port = o.remotePort||params.port
         self.connection(c)
