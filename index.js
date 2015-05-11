@@ -29,6 +29,7 @@ _.mixin({
   tls: _.peer({
     name: 'tls',
     auto: true,
+    port: 6006,
     requestCert: false,
     rejectUnauthorized: false,
     handshakeTimeout:20,
