@@ -1,6 +1,6 @@
 {
   "name": "icebreaker-peer-tls",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "icebreaker-peer-tls",
   "main": "index.js",
   "scripts": {
