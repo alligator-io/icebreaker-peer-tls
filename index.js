@@ -146,19 +146,14 @@ _.mixin({
       o.on('secureConnection',handle)
     },
 
-    stop: function stop() {
+    stop: function () {
       var self = this
       try {
-        self.server.close(function close() {
-          if (Object.keys(self.connections).length > 0) {
-            process.nextTick(function () {
-              close.call(self)
-            })
-            return
-          } else
-            self.emit('stopped')
+        self.server.close(function (){
+          self.emit('stopped')
         })
-      } catch (e) {
+      }
+      catch (e) {
         _([e], _.log(function () {
           self.emit('stopped')
         }), 'error')
